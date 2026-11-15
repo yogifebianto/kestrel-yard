@@ -9,7 +9,3 @@ export const PALETTE = {
   muted: '#98a0a8',
   accent: '#f0a830',
 };
-
-export function shade(name) {
-  return PALETTE[name];
-}

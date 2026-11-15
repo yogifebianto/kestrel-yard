@@ -43,6 +43,8 @@ export function createHud() {
   const deathOverlay = document.getElementById('death-overlay');
   const deathTitle = document.getElementById('death-title');
   const deathCopy = document.getElementById('death-copy');
+  const grenadesEl = document.getElementById('grenades');
+  const grenadeCountEl = document.getElementById('grenade-count');
 
   let hitTimer = 0;
   let lastMag = -1;
@@ -51,6 +53,7 @@ export function createHud() {
   let lastHealth = -1;
   let lastArmour = -1;
   let lastMoney = -1;
+  let lastGrenades = -1;
 
   return {
     setAmmo(mag, reserve) {
@@ -75,6 +78,12 @@ export function createHud() {
       if (value === lastMoney) return;
       lastMoney = value;
       if (moneyEl) moneyEl.textContent = `$${value}`;
+    },
+    setGrenades(value) {
+      if (value === lastGrenades) return;
+      lastGrenades = value;
+      if (grenadesEl) grenadesEl.textContent = String(value);
+      if (grenadeCountEl) grenadeCountEl.hidden = value === 0;
     },
     setTimer(seconds) {
       if (!timerEl) return;

@@ -25,6 +25,7 @@ export function createEconomy(state) {
   const buyItemsEl = document.getElementById('buy-menu-items');
   let buyMenuOpen = false;
   let weaponRef = null;
+  let hudRef = null;
 
   function canBuy(itemKey) {
     const item = SHOP[itemKey];
@@ -57,6 +58,7 @@ export function createEconomy(state) {
       }
     } else if (item.type === 'grenade') {
       state.player.grenades = 1;
+      if (hudRef) hudRef.setGrenades(state.player.grenades);
     } else if (item.type === 'kit') {
       state.player.hasDefuseKit = true;
     }
@@ -148,6 +150,9 @@ export function createEconomy(state) {
     },
     setWeaponRef(ref) {
       weaponRef = ref;
+    },
+    setHudRef(ref) {
+      hudRef = ref;
     },
   };
 }

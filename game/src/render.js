@@ -1,99 +1,77 @@
-// Rendering utilities: practice dummies and bot meshes.
+// Rendering utilities: bot meshes.
 import * as THREE from 'three';
-import { PALETTE } from './palette.js';
 
-export function createPracticeDummies(scene) {
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#d0a080'), roughness: 0.6, metalness: 0.05 });
-  const headMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#e0b090'), roughness: 0.45, metalness: 0.1 });
-  const standMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#3a3d42'), roughness: 0.85 });
-  const torsoGeometry = new THREE.BoxGeometry(0.52, 0.78, 0.3);
-  const headGeometry = new THREE.SphereGeometry(0.155, 16, 12);
-  const postGeometry = new THREE.BoxGeometry(0.1, 0.55, 0.1);
-  const baseGeometry = new THREE.BoxGeometry(0.5, 0.08, 0.5);
-
-  const spawns = [
-    [-20, 0.8, -20], // A site
-    [20, 0, 20],     // B site
-    [0, 0, -5],      // Mid
-  ];
-
-  const dummies = [];
-
-  for (const [x, y, z] of spawns) {
-    const group = new THREE.Group();
-    group.position.set(x, y, z);
-
-    const base = new THREE.Mesh(baseGeometry, standMaterial);
-    base.position.y = 0.04;
-    const post = new THREE.Mesh(postGeometry, standMaterial);
-    post.position.y = 0.3;
-    const torso = new THREE.Mesh(torsoGeometry, bodyMaterial);
-    torso.position.y = 1.0;
-    torso.userData.part = 'torso';
-    torso.userData.dummy = true;
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 1.53;
-    head.userData.part = 'head';
-    head.userData.dummy = true;
-    group.add(base, post, torso, head);
-    group.traverse((mesh) => {
-      if (mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
-    scene.add(group);
-    dummies.push({ torso, head });
-  }
-
-  return dummies;
-}
+const vanguardBody = new THREE.MeshStandardMaterial({ color: new THREE.Color('#d97030'), roughness: 0.7, metalness: 0.15 });
+const sentinelBody = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4080a8'), roughness: 0.7, metalness: 0.15 });
+const vanguardAccent = new THREE.MeshStandardMaterial({ color: new THREE.Color('#e88040'), roughness: 0.65, metalness: 0.2 });
+const sentinelAccent = new THREE.MeshStandardMaterial({ color: new THREE.Color('#50a0d0'), roughness: 0.65, metalness: 0.2 });
+const skinMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#c8a080'), roughness: 0.6, metalness: 0.05 });
+const gearMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#2a2c30'), roughness: 0.5, metalness: 0.3 });
 
 export function createBotMeshes(scene) {
-  const vanguardBody = new THREE.MeshStandardMaterial({ color: new THREE.Color('#d97030'), roughness: 0.7, metalness: 0.15 });
-  const sentinelBody = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4080a8'), roughness: 0.7, metalness: 0.15 });
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#c8a080'), roughness: 0.6, metalness: 0.05 });
-  const helmetMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#2a2c30'), roughness: 0.5, metalness: 0.3 });
-  const weaponMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color('#3a3c40'), roughness: 0.6, metalness: 0.4 });
-
   const meshes = [];
 
   function createBotMesh(team) {
     const group = new THREE.Group();
     const bodyMat = team === 'vanguard' ? vanguardBody : sentinelBody;
+    const accentMat = team === 'vanguard' ? vanguardAccent : sentinelAccent;
 
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.68, 0.26), bodyMat);
-    torso.position.y = 1.08;
+    const hips = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.18, 0.20), bodyMat);
+    hips.position.set(0, 0.86, 0);
 
-    const shoulders = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.16, 0.28), bodyMat);
-    shoulders.position.y = 1.36;
+    const legLPivot = new THREE.Group();
+    legLPivot.position.set(-0.09, 0.79, 0);
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.78, 0.16), bodyMat);
+    legL.position.y = -0.39;
+    legL.userData.part = 'legs';
+    legLPivot.add(legL);
 
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.18), skinMaterial);
-    head.position.y = 1.6;
+    const legRPivot = new THREE.Group();
+    legRPivot.position.set(0.09, 0.79, 0);
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.78, 0.16), bodyMat);
+    legR.position.y = -0.39;
+    legR.userData.part = 'legs';
+    legRPivot.add(legR);
 
-    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.2), helmetMaterial);
-    helmet.position.y = 1.72;
+    const torsoGroup = new THREE.Group();
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.52, 0.26), bodyMat);
+    torso.position.set(0, 1.20, 0);
+    torso.userData.part = 'torso';
 
-    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), bodyMat);
-    armL.position.set(-0.34, 1.1, 0);
-    const handL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.1), skinMaterial);
-    handL.position.set(-0.34, 0.78, 0);
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.28), accentMat);
+    chest.position.set(0, 1.44, 0);
 
-    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), bodyMat);
-    armR.position.set(0.34, 1.1, 0);
-    const handR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.1), skinMaterial);
-    handR.position.set(0.34, 0.78, 0);
+    const armLPivot = new THREE.Group();
+    armLPivot.position.set(-0.27, 1.54, 0);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.44, 0.12), bodyMat);
+    armL.position.y = -0.22;
+    armL.userData.part = 'arms';
+    armLPivot.add(armL);
 
-    const weapon = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.36), weaponMaterial);
-    weapon.position.set(0.16, 0.88, -0.24);
+    const armRPivot = new THREE.Group();
+    armRPivot.position.set(0.27, 1.54, 0);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.44, 0.12), bodyMat);
+    armR.position.y = -0.22;
+    armR.userData.part = 'arms';
+    armRPivot.add(armR);
 
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.72, 0.18), bodyMat);
-    legL.position.set(-0.12, 0.36, 0);
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.10), bodyMat);
+    neck.position.set(0, 1.55, 0);
 
-    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.72, 0.18), bodyMat);
-    legR.position.set(0.12, 0.36, 0);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 12, 10), skinMaterial);
+    head.position.set(0, 1.65, 0);
+    head.userData.part = 'head';
 
-    group.add(torso, shoulders, head, helmet, armL, handL, armR, handR, weapon, legL, legR);
+    const helmetGeo = new THREE.SphereGeometry(0.125, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    const helmet = new THREE.Mesh(helmetGeo, accentMat);
+    helmet.position.set(0, 1.67, 0);
+
+    const weapon = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.10, 0.50), gearMaterial);
+    weapon.position.set(0.20, 1.30, -0.22);
+
+    torsoGroup.add(torso, chest, armLPivot, armRPivot, neck, head, helmet, weapon);
+    group.add(hips, legLPivot, legRPivot, torsoGroup);
+
     group.traverse((mesh) => {
       if (mesh.isMesh) {
         mesh.castShadow = true;
@@ -103,7 +81,7 @@ export function createBotMeshes(scene) {
     group.visible = false;
     scene.add(group);
 
-    return { group, torso, head, legL, legR, armL, armR, weapon };
+    return { group, torso, head, legL, legR, armL, armR, legLPivot, legRPivot, armLPivot, armRPivot };
   }
 
   for (let i = 0; i < 7; i += 1) {
@@ -113,8 +91,6 @@ export function createBotMeshes(scene) {
 
   return meshes;
 }
-
-const scratchVec = new THREE.Vector3();
 
 export function updateBotMeshes(bots, meshes) {
   for (let i = 0; i < bots.length && i < meshes.length; i += 1) {
@@ -131,16 +107,16 @@ export function updateBotMeshes(bots, meshes) {
       const legSwing = Math.sin(walkPhase) * 0.22;
       const armSwing = Math.sin(walkPhase) * 0.18;
 
-      mesh.legL.rotation.x = legSwing;
-      mesh.legR.rotation.x = -legSwing;
-      mesh.armL.rotation.x = -armSwing;
-      mesh.armR.rotation.x = armSwing;
+      mesh.legLPivot.rotation.x = legSwing;
+      mesh.legRPivot.rotation.x = -legSwing;
+      mesh.armLPivot.rotation.x = -armSwing;
+      mesh.armRPivot.rotation.x = armSwing;
     } else {
       const deathTime = bot.deathTime || 0;
       if (deathTime < 0.5) {
         mesh.group.visible = true;
-        mesh.group.position.set(bot.position.x, bot.position.y - deathTime * 1.4, bot.position.z);
-        mesh.group.rotation.set(-deathTime * 3.5, bot.yaw, 0);
+        mesh.group.position.set(bot.position.x, bot.position.y, bot.position.z);
+        mesh.group.rotation.set(-deathTime * Math.PI, bot.yaw, 0);
       } else {
         mesh.group.visible = false;
       }

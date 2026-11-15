@@ -1,6 +1,5 @@
 // Boot and loop: fixed 60 Hz simulation, screenshot hooks, thin wiring between modules.
 import * as THREE from 'three';
-import { PALETTE } from './palette.js';
 import { createState } from './state.js';
 import { createMap } from './map.js';
 import { createInput } from './input.js';
@@ -11,7 +10,7 @@ import { createBots } from './bots.js';
 import { createRounds } from './rounds.js';
 import { createEconomy } from './economy.js';
 import { createAudio } from './audio.js';
-import { createPracticeDummies, createBotMeshes, updateBotMeshes } from './render.js';
+import { createBotMeshes, updateBotMeshes } from './render.js';
 
 const FIXED_STEP = 1 / 60;
 const params = new URLSearchParams(window.location.search);
@@ -47,7 +46,6 @@ scene.add(camera);
 
 const state = createState(seed);
 const map = createMap(scene);
-const dummies = createPracticeDummies(scene);
 const botMeshes = createBotMeshes(scene);
 const weapon = createWeapon(camera, state);
 const hud = createHud();
@@ -56,15 +54,18 @@ const bots = createBots(state, map.waypoints);
 const rounds = createRounds(state);
 const economy = createEconomy(state);
 economy.setWeaponRef(weapon);
+economy.setHudRef(hud);
 const audio = createAudio();
 const input = createInput(renderer.domElement, onLockChange);
 const raycaster = new THREE.Raycaster();
 raycaster.far = 100;
 
-let shootables = map.shootables.concat(dummies.flatMap(d => [d.torso, d.head]));
+let shootables = map.shootables;
 const direction = new THREE.Vector3();
 const shotDir = new THREE.Vector3();
 const throwVelocity = new THREE.Vector3();
+const grenadePos = new THREE.Vector3();
+const grenadeVel = new THREE.Vector3();
 
 const grenadeMeshes = [];
 const grenadeGeometry = new THREE.SphereGeometry(0.06, 8, 6);
@@ -82,7 +83,7 @@ function createGrenadeMesh() {
 for (let i = 0; i < 8; i += 1) grenadeMeshes.push(createGrenadeMesh());
 
 function updateShootables() {
-  shootables = map.shootables.concat(dummies.flatMap(d => [d.torso, d.head])).concat(botMeshes.flatMap(m => [m.torso, m.head]));
+  shootables = map.shootables.concat(botMeshes.flatMap(m => [m.torso, m.head, m.legL, m.legR, m.armL, m.armR]));
 }
 
 const markerHoldMs = shot ? 4000 : 90;
@@ -96,11 +97,25 @@ hud.setAmmo(state.weapon.mag, state.weapon.reserve);
 hud.setHealth(state.player.health);
 hud.setArmour(state.player.armour);
 hud.setMoney(state.player.money);
+hud.setGrenades(state.player.grenades);
 hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
 hud.setTimer(0);
 hud.onPlay(() => {
   if (shot) return;
   audio.resume();
+  if (state.round.phase === 'match_end') {
+    state.round.number = 0;
+    state.round.vanguardWins = 0;
+    state.round.sentinelWins = 0;
+    state.player.team = 'vanguard';
+    state.player.money = 800;
+    state.player.hasDefuseKit = false;
+    state.player.hasBomb = true;
+    rounds.startRound();
+    hud.hideOverlay();
+    hud.setScore(0, 0);
+    hud.setMoney(state.player.money);
+  }
   input.requestLock();
 });
 
@@ -152,40 +167,34 @@ function shoot(spread) {
 
     if (hit) {
       audio.playImpact();
-      if (hit.object.userData.dummy) {
-        const part = hit.object.userData.part || 'torso';
-        const mult = weapon.bodyMultiplier(part);
-        const damage = weapon.damage() * mult;
-        hud.hitMarker(part === 'head', markerHoldMs);
-      } else {
-        // Hit bot
-        for (const bot of state.bots) {
-          if (!bot.alive) continue;
-          const botPos = bot.position;
-          const dist = hit.point.distanceTo(botPos);
-          if (dist < 0.8) {
-            const yDiff = hit.point.y - botPos.y;
-            let part = 'torso';
-            if (yDiff > 1.4) part = 'head';
-            else if (yDiff < 0.6) part = 'legs';
+      for (const bot of state.bots) {
+        if (!bot.alive) continue;
+        const botPos = bot.position;
+        const dist = hit.point.distanceTo(botPos);
+        if (dist < 0.8) {
+          const yDiff = hit.point.y - botPos.y;
+          const xDiff = Math.abs(hit.point.x - botPos.x);
+          let part = 'torso';
+          if (yDiff > 1.4) part = 'head';
+          else if (yDiff < 0.6) part = 'legs';
+          else if (xDiff > 0.2) part = 'arms';
 
-            const mult = weapon.bodyMultiplier(part);
-            let damage = weapon.damage() * mult;
-            if (state.player.armour > 0 && part !== 'legs') {
-              const absorbed = damage * 0.5;
-              state.player.armour = Math.max(0, state.player.armour - absorbed);
-              damage -= absorbed;
-            }
-
-            const killed = bots.takeDamage(bot.id, damage);
-            hud.hitMarker(part === 'head', markerHoldMs);
-            if (killed) {
-              hud.addKill('Player', `Bot${bot.id}`, part === 'head');
-              economy.killReward();
-              hud.setMoney(state.player.money);
-            }
-            break;
+          const mult = weapon.bodyMultiplier(part);
+          let damage = weapon.damage() * mult;
+          if (state.player.armour > 0 && part !== 'legs') {
+            const absorbed = damage * 0.5;
+            state.player.armour = Math.max(0, state.player.armour - absorbed);
+            damage -= absorbed;
           }
+
+          const killed = bots.takeDamage(bot.id, damage);
+          hud.hitMarker(part === 'head', markerHoldMs);
+          if (killed) {
+            hud.addKill('Player', `Bot${bot.id}`, part === 'head');
+            economy.killReward();
+            hud.setMoney(state.player.money);
+          }
+          break;
         }
       }
     }
@@ -204,16 +213,19 @@ function throwGrenade() {
   if (state.player.grenades <= 0 || grenadeThrowCooldown > 0) return;
   state.player.grenades -= 1;
   grenadeThrowCooldown = 0.5;
-  hud.setMoney(state.player.money);
+  hud.setGrenades(state.player.grenades);
 
   camera.getWorldDirection(throwVelocity);
   const throwSpeed = 18;
   throwVelocity.multiplyScalar(throwSpeed);
   throwVelocity.y += 6;
 
+  grenadePos.copy(camera.position);
+  grenadeVel.copy(throwVelocity);
+
   state.grenades.push({
-    position: new THREE.Vector3().copy(camera.position),
-    velocity: new THREE.Vector3().copy(throwVelocity),
+    position: grenadePos.clone(),
+    velocity: grenadeVel.clone(),
     fuse: 1.6,
     team: state.player.team,
   });
@@ -376,6 +388,23 @@ function step(dt) {
     }
 
     const botShots = bots.step(dt, random, map.colliders, weapon, hud, rounds);
+
+    let anyBotPlanting = false;
+    let anyBotDefusing = false;
+    for (const bot of state.bots) {
+      if (bot.planting && bot.plantTime > 0) {
+        hud.showPlantProgress(Math.min(1, bot.plantTime / 3));
+        anyBotPlanting = true;
+      }
+      if (bot.defusing && bot.defuseTime > 0) {
+        const defuseTimeNeeded = bot.hasDefuseKit ? 5 : 10;
+        hud.showDefuseProgress(Math.min(1, bot.defuseTime / defuseTimeNeeded));
+        anyBotDefusing = true;
+      }
+    }
+    if (!anyBotPlanting && !state.player.planting) hud.hidePlantProgress();
+    if (!anyBotDefusing && !state.player.defusing) hud.hideDefuseProgress();
+
     for (const shot of botShots) {
       audio.playGunshot(0.04);
       raycaster.set(shot.origin, shot.direction);
@@ -388,9 +417,11 @@ function step(dt) {
         const dist = hit.point.distanceTo(playerPos);
         if (dist < 0.8 && state.player.alive) {
           const yDiff = hit.point.y - playerPos.y;
+          const xDiff = Math.abs(hit.point.x - playerPos.x);
           let part = 'torso';
           if (yDiff > 1.4) part = 'head';
           else if (yDiff < 0.6) part = 'legs';
+          else if (xDiff > 0.2) part = 'arms';
 
           const mult = weapon.bodyMultiplier(part);
           let damage = 34 * mult;
@@ -424,13 +455,22 @@ function step(dt) {
   rounds.step(dt);
 
   // Handle round transitions
+  if (prevPhase !== 'buy' && state.round.phase === 'buy') {
+    hud.setGrenades(state.player.grenades);
+  }
+
   if (prevPhase === 'buy' && state.round.phase === 'live') {
+    if (state.round.sideSwapped) {
+      const newTeamName = state.player.team === 'vanguard' ? 'Vanguard' : 'Sentinel';
+      hud.showRoundBanner(`Side swap! You are now ${newTeamName}`);
+      state.round.sideSwapped = false;
+    }
     bots.spawn();
     bots.assignRoles(random);
   }
 
   if (prevPhase !== 'end' && state.round.phase === 'end') {
-    const won = state.round.winner === 'vanguard';
+    const won = state.round.winner === state.player.team;
     economy.roundIncome(won, state.player.alive);
     hud.setMoney(state.player.money);
 
@@ -439,8 +479,18 @@ function step(dt) {
     hud.showRoundBanner(`${winner} wins by ${reason}!`);
   }
 
+  if (prevPhase !== 'match_end' && state.round.phase === 'match_end') {
+    const winner = state.round.vanguardWins >= 8 ? 'vanguard' : 'sentinel';
+    hud.showMatchEnd(winner, state.round.vanguardWins, state.round.sentinelWins);
+  }
+
+  if (state.round.phase === 'end' || state.round.phase === 'match_end') {
+    hud.hideDeathOverlay();
+  }
+
   const timeLeft = rounds.getTimeLeft();
   hud.setTimer(timeLeft);
+  hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
 
   if (state.round.bombPlanted) {
     bombBeepTimer += dt;
@@ -516,17 +566,18 @@ function runShot(name) {
     bots.assignRoles(random);
     const enemyBot = state.bots.find(b => b.team === 'sentinel');
     if (enemyBot) {
-      enemyBot.position.set(-4, 0, -14);
-      enemyBot.yaw = Math.PI * 0.85;
+      enemyBot.position.set(-5, 0, -12);
+      enemyBot.yaw = Math.PI * 0.75;
     }
     p.position.set(0, 0, 0);
-    aimAt(new THREE.Vector3(-4, 1.6, -14));
+    aimAt(new THREE.Vector3(-5, 1.6, -12));
     state.weapon.type = 'AR-4';
     state.weapon.mag = 22;
     state.weapon.reserve = 60;
     state.player.health = 92;
     state.player.armour = 78;
     state.player.money = 2450;
+    state.player.grenades = 1;
     state.round.phase = 'live';
     state.round.phaseTime = 48;
     state.round.vanguardWins = 3;
@@ -540,6 +591,7 @@ function runShot(name) {
     p.position.set(0, 0, 28);
     aimAt(new THREE.Vector3(0, 1.5, 0));
     state.player.money = 3500;
+    state.player.team = 'sentinel';
     state.round.phase = 'buy';
     state.round.phaseTime = 5;
     economy.showBuyMenu();
@@ -564,6 +616,7 @@ function runShot(name) {
   hud.setHealth(state.player.health);
   hud.setArmour(state.player.armour);
   hud.setMoney(state.player.money);
+  hud.setGrenades(state.player.grenades);
   hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
   hud.setTimer(state.round.phase === 'buy' ? 10 : 95);
   syncCamera();

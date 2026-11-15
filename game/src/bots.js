@@ -13,6 +13,9 @@ const AIM_TRACK_TIME = 1.2;
 const FIRE_RATE = 0.12;
 const WAYPOINT_REACH = 1.8;
 
+const shotOrigin = new THREE.Vector3();
+const shotDirection = new THREE.Vector3();
+
 export function createBots(state, waypoints) {
   const bots = [];
   const raycaster = new THREE.Raycaster();
@@ -29,14 +32,17 @@ export function createBots(state, waypoints) {
     bots.length = 0;
     state.bots = bots;
 
-    // 3 Vanguard teammates
+    const playerTeam = state.player.team;
+    const enemyTeam = playerTeam === 'vanguard' ? 'sentinel' : 'vanguard';
+
+    // 3 teammates
     for (let i = 0; i < 3; i += 1) {
-      bots.push(createBot('vanguard', i, waypoints));
+      bots.push(createBot(playerTeam, i, waypoints));
     }
 
-    // 4 Sentinel enemies
+    // 4 enemies
     for (let i = 0; i < 4; i += 1) {
-      bots.push(createBot('sentinel', i + 3, waypoints));
+      bots.push(createBot(enemyTeam, i + 3, waypoints));
     }
   }
 
@@ -151,7 +157,7 @@ export function createBots(state, waypoints) {
   }
 
   function shoot(bot, random, weapon, hud) {
-    if (bot.cooldown > 0 || bot.mag === 0) return;
+    if (bot.cooldown > 0 || bot.mag === 0) return false;
     bot.cooldown = FIRE_RATE;
     bot.mag -= 1;
 
@@ -163,9 +169,11 @@ export function createBots(state, waypoints) {
     direction.z += (random() * 2 - 1) * error;
     direction.normalize();
 
-    raycaster.set(botEye, direction);
+    shotOrigin.copy(botEye);
+    shotDirection.copy(direction);
+    raycaster.set(shotOrigin, shotDirection);
     raycaster.far = 100;
-    return { origin: new THREE.Vector3().copy(botEye), direction: new THREE.Vector3().copy(direction) };
+    return true;
   }
 
   function step(dt, random, colliders, weapon, hud, rounds) {
@@ -194,6 +202,11 @@ export function createBots(state, waypoints) {
             bot.plantTime = 0;
           }
           continue;
+        } else {
+          if (bot.planting) {
+            bot.planting = false;
+            bot.plantTime = 0;
+          }
         }
       }
 
@@ -207,19 +220,16 @@ export function createBots(state, waypoints) {
           bot.defusing = true;
           bot.defuseTime += dt;
           const defuseTimeNeeded = bot.hasDefuseKit ? 5 : 10;
-          hud.showDefuseProgress(Math.min(1, bot.defuseTime / defuseTimeNeeded));
           if (bot.defuseTime >= defuseTimeNeeded) {
             rounds.endRound('sentinel', 'defuse');
             bot.defusing = false;
             bot.defuseTime = 0;
-            hud.hideDefuseProgress();
           }
           continue;
         } else {
           if (bot.defusing) {
             bot.defusing = false;
             bot.defuseTime = 0;
-            hud.hideDefuseProgress();
           }
         }
       }
@@ -267,9 +277,8 @@ export function createBots(state, waypoints) {
 
         if (bot.reactionTime > 0) {
           bot.reactionTime -= dt;
-        } else {
-          const shot = shoot(bot, random, weapon, hud);
-          if (shot) shots.push({ ...shot, shooterId: bot.id, team: bot.team });
+        } else if (shoot(bot, random, weapon, hud)) {
+          shots.push({ origin: new THREE.Vector3().copy(shotOrigin), direction: new THREE.Vector3().copy(shotDirection), shooterId: bot.id, team: bot.team });
         }
       } else {
         // Navigate waypoints

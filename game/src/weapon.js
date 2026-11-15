@@ -13,6 +13,7 @@ const BODY_MULTIPLIERS = {
   head: 4.0,
   torso: 1.0,
   legs: 0.75,
+  arms: 0.9,
 };
 
 const SPREAD_STILL = 0.0022;

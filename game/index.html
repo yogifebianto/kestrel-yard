@@ -269,6 +269,19 @@
   }
   #bomb-carrier[hidden] { display: none; }
 
+  #grenade-count {
+    position: fixed;
+    right: 32px;
+    bottom: 92px;
+    padding: 4px 12px;
+    background: color-mix(in srgb, var(--canvas) 85%, transparent);
+    border-radius: var(--radius-panel);
+    font-family: var(--font-readout);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  #grenade-count b { color: var(--ink); font-weight: 500; }
+
   .overlay {
     position: fixed;
     inset: 0;
@@ -349,6 +362,7 @@
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
   <div id="ammo"><span id="ammo-mag">12</span><span id="ammo-reserve">/ 24</span></div>
+  <div id="grenade-count" hidden>HE <b id="grenades">0</b></div>
   <div id="health-bar">HP <b id="health">100</b></div>
   <div id="armour-bar">AP <b id="armour">0</b></div>
   <div id="timer-display"><b id="timer">0:00</b></div>
@@ -396,6 +410,9 @@
       <li><kbd>Mouse</kbd> Look</li>
       <li><kbd>Click</kbd> Fire</li>
       <li><kbd>R</kbd> Reload</li>
+      <li><kbd>G</kbd> Grenade</li>
+      <li><kbd>E</kbd> Plant / Defuse</li>
+      <li><kbd>B</kbd> Buy Menu</li>
       <li><kbd>Shift</kbd> Walk</li>
       <li><kbd>Ctrl</kbd> Crouch</li>
       <li><kbd>Space</kbd> Jump</li>

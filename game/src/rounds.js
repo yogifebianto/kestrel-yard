@@ -26,12 +26,13 @@ export function createRounds(state) {
     // Reset player state
     state.player.alive = true;
     state.player.health = 100;
-    state.player.hasBomb = true;
+    state.player.hasBomb = state.player.team === 'vanguard';
     state.player.planting = false;
     state.player.plantTime = 0;
     state.player.defusing = false;
     state.player.defuseTime = 0;
-    state.player.position.set(0, 0, 30);
+    state.player.grenades = 0;
+    state.player.position.set(state.player.team === 'vanguard' ? 0 : 0, 0, state.player.team === 'vanguard' ? 30 : -30);
     state.player.velocity.set(0, 0, 0);
 
     // Check for side swap at 8 rounds
@@ -39,6 +40,15 @@ export function createRounds(state) {
       const temp = state.round.vanguardWins;
       state.round.vanguardWins = state.round.sentinelWins;
       state.round.sentinelWins = temp;
+      state.player.team = state.player.team === 'vanguard' ? 'sentinel' : 'vanguard';
+      state.player.hasBomb = state.player.team === 'vanguard';
+      state.player.hasDefuseKit = state.player.team === 'sentinel';
+      if (state.player.team === 'sentinel') {
+        state.player.position.set(0, 0, -30);
+      } else {
+        state.player.position.set(0, 0, 30);
+      }
+      state.round.sideSwapped = true;
     }
   }
 
@@ -53,8 +63,8 @@ export function createRounds(state) {
 
   function checkWinConditions() {
     // Elimination
-    const vanguardAlive = state.bots.filter(b => b.team === 'vanguard' && b.alive).length + (state.player.alive ? 1 : 0);
-    const sentinelAlive = state.bots.filter(b => b.team === 'sentinel' && b.alive).length;
+    const vanguardAlive = state.bots.filter(b => b.team === 'vanguard' && b.alive).length + (state.player.team === 'vanguard' && state.player.alive ? 1 : 0);
+    const sentinelAlive = state.bots.filter(b => b.team === 'sentinel' && b.alive).length + (state.player.team === 'sentinel' && state.player.alive ? 1 : 0);
     if (vanguardAlive === 0 && sentinelAlive > 0) return { winner: 'sentinel', reason: 'elimination' };
     if (sentinelAlive === 0 && vanguardAlive > 0) return { winner: 'vanguard', reason: 'elimination' };
 

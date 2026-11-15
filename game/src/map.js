@@ -1,7 +1,6 @@
 // KESTREL YARD: a 64x64 m tactical map with two bombsites, three lanes, and cover.
 // Returns collision boxes for player/bots and a waypoint graph for AI navigation.
 import * as THREE from 'three';
-import { PALETTE } from './palette.js';
 
 export function createMap(scene) {
   const group = new THREE.Group();
@@ -169,6 +168,27 @@ export function createMap(scene) {
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(x, 3.96, z);
     group.add(ceiling);
+
+    const gantry = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 1.4), materials.metal);
+    gantry.position.set(x, 5.16, z);
+    gantry.castShadow = true;
+    gantry.receiveShadow = true;
+    group.add(gantry);
+
+    const lightPool = new THREE.Mesh(
+      new THREE.CircleGeometry(2.4, 16),
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#f0d0a8'),
+        emissive: new THREE.Color('#f0d0a8'),
+        emissiveIntensity: 0.15,
+        roughness: 0.92,
+        metalness: 0.0,
+      })
+    );
+    lightPool.rotation.x = -Math.PI / 2;
+    lightPool.position.set(x, 0.01, z);
+    lightPool.receiveShadow = true;
+    group.add(lightPool);
   }
 
   hangLamp(-20, -20);
