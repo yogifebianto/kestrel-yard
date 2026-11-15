@@ -18,6 +18,7 @@ import { createWeapon } from './weapon.js';
 import { createHud } from './hud.js';
 import { createBots } from './bots.js';
 import { createRounds } from './rounds.js';
+import { createBomb } from './bomb.js';
 import { createEconomy } from './economy.js';
 import { createAudio } from './audio.js';
 import { createBotMeshes, updateBotMeshes } from './render.js';
@@ -89,6 +90,7 @@ const hud = createHud(map);
 const player = createPlayer(map.colliders, state);
 const bots = createBots(state, map.waypoints);
 const rounds = createRounds(state);
+const bombDevice = createBomb(scene);
 const economy = createEconomy(state);
 economy.setWeaponRef(weapon);
 economy.setHudRef(hud);
@@ -404,6 +406,7 @@ function step(dt) {
       if (p.plantTime >= 3) {
         const site = isInSiteA ? 'a_site' : 'b_site';
         rounds.plantBomb(site);
+        bombDevice.place(site);
         hud.showRadio(`Bomb planted at ${site === 'a_site' ? 'A' : 'B'}`);
         p.hasBomb = false;
         p.planting = false;
@@ -515,6 +518,14 @@ function step(dt) {
 
   const prevPhase = state.round.phase;
   rounds.step(dt);
+
+  // The planted device follows the round state: one place decides whether it is in the world.
+  if (state.round.bombPlanted) {
+    if (!bombDevice.group.visible) bombDevice.place(state.round.bombSite);
+    bombDevice.step(dt, Math.max(0, 40 - state.round.bombTime));
+  } else {
+    bombDevice.hide();
+  }
 
   // Handle round transitions
   if (prevPhase !== 'buy' && state.round.phase === 'buy') {
@@ -628,32 +639,55 @@ function runShot(name) {
     hud.hideOverlay();
     bots.spawn();
     bots.assignRoles(random);
-    const enemyBot = state.bots.find(b => b.team === 'sentinel');
-    if (enemyBot) {
-      enemyBot.position.set(-5, 0, -12);
-      enemyBot.yaw = Math.PI * 0.75;
+    // Frame the mid lane: cover crates ahead, both teams in view, walls closing the shot.
+    const enemies = state.bots.filter(b => b.team === 'sentinel');
+    if (enemies[0]) {
+      enemies[0].position.set(-3.6, 0, -4.2);
+      enemies[0].yaw = 0.35;
+      enemies[0].alive = true;
     }
-    p.position.set(0, 0, 0);
-    aimAt(new THREE.Vector3(-5, 1.6, -12));
+    if (enemies[1]) {
+      enemies[1].position.set(4.4, 0, -3.4);
+      enemies[1].yaw = -0.3;
+      enemies[1].alive = true;
+    }
+    if (enemies[2]) {
+      enemies[2].position.set(0.6, 0, -9.4);
+      enemies[2].yaw = 0.1;
+      enemies[2].alive = true;
+    }
+    const friendlies = state.bots.filter(b => b.team === 'vanguard');
+    if (friendlies[0]) {
+      friendlies[0].position.set(-6.2, 0, 3.4);
+      friendlies[0].yaw = -0.4;
+      friendlies[0].alive = true;
+    }
+    if (friendlies[1]) {
+      friendlies[1].position.set(6.4, 0, 4.6);
+      friendlies[1].yaw = 0.5;
+      friendlies[1].alive = true;
+    }
+    p.position.set(2.6, 0, 7.4);
+    aimAt(new THREE.Vector3(-1.4, 1.05, -6.0));
     state.weapon.type = 'AR-4';
-    state.weapon.mag = 22;
+    state.weapon.mag = 24;
     state.weapon.reserve = 60;
-    state.player.health = 92;
-    state.player.armour = 78;
-    state.player.money = 2450;
-    state.player.grenades = 1;
+    p.health = 92;
+    p.armour = 78;
+    p.money = 2450;
+    p.grenades = 1;
     state.round.phase = 'live';
     state.round.phaseTime = 48;
     state.round.vanguardWins = 3;
     state.round.sentinelWins = 2;
   } else if (name === 'menu') {
-    p.position.set(0, 0, 28);
-    aimAt(new THREE.Vector3(0, 1.5, -5));
+    p.position.set(-17, 0, -12);
+    aimAt(new THREE.Vector3(-20, 1.6, -22));
     hud.showOverlay('start', 0, 0);
   } else if (name === 'buy') {
     hud.hideOverlay();
-    p.position.set(0, 0, 28);
-    aimAt(new THREE.Vector3(0, 1.5, 0));
+    p.position.set(12.5, 0, 15.5);
+    aimAt(new THREE.Vector3(20.5, 1.5, 21));
     state.player.money = 3500;
     state.player.team = 'sentinel';
     state.round.phase = 'buy';
@@ -663,15 +697,38 @@ function runShot(name) {
     hud.hideOverlay();
     bots.spawn();
     bots.assignRoles(random);
+    // Stand on the A-site platform looking across the site, defuser in view.
     const defuserBot = state.bots.find(b => b.team === 'sentinel');
     if (defuserBot) {
-      defuserBot.position.set(-20, 0.8, -22);
+      defuserBot.position.set(-20.4, 0.8, -21.6);
+      defuserBot.yaw = Math.PI * 0.1;
+      defuserBot.alive = true;
     }
-    p.position.set(-15, 0.8, -15);
-    aimAt(new THREE.Vector3(-20, 1.5, -20));
+    const guardBot = state.bots.filter(b => b.team === 'sentinel')[1];
+    if (guardBot) {
+      guardBot.position.set(-24.4, 0.8, -22.4);
+      guardBot.yaw = Math.PI * 0.35;
+      guardBot.alive = true;
+    }
+    const mates = state.bots.filter(b => b.team === 'vanguard');
+    for (let i = 0; i < mates.length; i += 1) {
+      mates[i].position.set(-12.8 + i * 1.7, 0, -14.4 - i * 1.6);
+      mates[i].yaw = Math.PI * 0.85;
+      mates[i].alive = true;
+    }
+    p.position.set(-16.2, 0.8, -16.0);
+    aimAt(new THREE.Vector3(-20.0, 0.55, -20.0));
+    state.weapon.type = 'AR-4';
+    state.weapon.mag = 18;
+    state.weapon.reserve = 60;
+    p.health = 88;
+    p.armour = 65;
+    p.money = 1750;
     state.round.bombPlanted = true;
     state.round.bombSite = 'a_site';
     state.round.bombTime = 20;
+    bombDevice.place('a_site');
+    bombDevice.step(0, 20);
     state.round.phase = 'live';
     hud.showBombIndicator('BOMB: 20s');
   }

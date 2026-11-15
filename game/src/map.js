@@ -204,7 +204,7 @@ export function createMap(scene) {
   box(12, 0.8, 10, -20, 0.4, -20, 'platform');
   // Crates on platform
   crate(1.8, 1.4, 1.8, -23, 1.5, -22);
-  crate(1.8, 1.4, 1.8, -17, 1.5, -18);
+  crate(1.8, 1.4, 1.8, -16.8, 1.5, -21.9);
   crate(1.6, 1.2, 1.6, -21, 1.4, -17);
   // Cover around A
   crate(2.4, 1.1, 1.2, -14, 0.55, -26);
@@ -257,9 +257,9 @@ export function createMap(scene) {
   crate(1.6, 0.6, 1.2, -16, 0.3, 8);
   crate(1.6, 0.6, 1.2, -16, 0.9, 8);
 
-  box(0.15, 3.2, 0.15, -10, 1.6, -12, 'metal');
-  box(0.15, 3.2, 0.15, 10, 1.6, 12, 'metal');
-  box(3.6, 0.2, 0.15, 0, 3.1, 0, 'metal');
+  box(0.15, 3.2, 0.15, -9, 1.6, 14, 'metal');
+  box(0.15, 3.2, 0.15, 9, 1.6, 14, 'metal');
+  box(18.2, 0.2, 0.15, 0, 3.1, 14, 'metal');
 
   function hangLamp(x, z) {
     const cableGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.6, 6);
