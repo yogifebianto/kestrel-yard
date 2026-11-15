@@ -35,12 +35,39 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.3;
+renderer.toneMappingExposure = 1.65;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#9ab0c0');
-scene.fog = new THREE.Fog(new THREE.Color('#b0c5d8'), 50, 95);
+
+// Sky dome with warm horizon to cool zenith gradient
+const skyGeo = new THREE.SphereGeometry(130, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5);
+const skyMat = new THREE.ShaderMaterial({
+  uniforms: {},
+  vertexShader: `
+    varying vec3 vPosition;
+    void main() {
+      vPosition = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vPosition;
+    void main() {
+      float t = clamp(vPosition.y / 130.0, 0.0, 1.0);
+      vec3 horizon = vec3(0.82, 0.55, 0.35);
+      vec3 zenith = vec3(0.30, 0.45, 0.62);
+      gl_FragColor = vec4(mix(horizon, zenith, t * t), 1.0);
+    }
+  `,
+  side: THREE.BackSide,
+  depthWrite: false,
+});
+const skyDome = new THREE.Mesh(skyGeo, skyMat);
+scene.add(skyDome);
+
+// Warm low fog matching horizon palette
+scene.fog = new THREE.Fog(new THREE.Color('#d19068'), 45, 110);
 const camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.05, 140);
 scene.add(camera);
 
