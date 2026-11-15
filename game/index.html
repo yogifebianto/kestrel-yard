@@ -30,6 +30,24 @@
   #game, #game canvas { position: fixed; inset: 0; display: block; }
   #hud { position: fixed; inset: 0; pointer-events: none; }
 
+  .hud-panel {
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    border-radius: var(--radius-panel);
+    padding: 8px 12px;
+    font-family: var(--font-readout);
+  }
+  .hud-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .hud-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
   #crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); }
   #crosshair i { position: absolute; background: var(--ink); opacity: .85; }
   #crosshair i:nth-child(1) { left: 10px; top: 0; width: 2px; height: 7px; }
@@ -45,76 +63,232 @@
   #hitmarker i:nth-child(3) { top: 12px; left: 0; height: 2px; width: 8px; }
   #hitmarker i:nth-child(4) { top: 12px; right: 0; height: 2px; width: 8px; }
 
-  #ammo {
+  #scoreboard {
     position: fixed;
-    right: 32px;
-    bottom: 24px;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-family: var(--font-readout);
-    font-size: 56px;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    color: var(--ink);
-    padding: 8px 12px;
-    background: color-mix(in srgb, var(--canvas) 85%, transparent);
-    border-radius: var(--radius-panel);
-  }
-  #ammo.empty #ammo-mag { color: var(--accent); }
-  #ammo-reserve { font-size: 16px; letter-spacing: -0.01em; color: var(--muted); }
-
-  #health-bar, #armour-bar {
-    position: fixed;
-    left: 32px;
-    font-family: var(--font-readout);
-    font-size: 14px;
-    color: var(--muted);
-    padding: 4px 12px;
-    background: color-mix(in srgb, var(--canvas) 85%, transparent);
-    border-radius: var(--radius-panel);
-  }
-  #health-bar { bottom: 72px; }
-  #armour-bar { bottom: 52px; }
-  #health-bar b, #armour-bar b { color: var(--ink); font-weight: 500; }
-
-  #timer-display {
-    position: fixed;
-    top: 24px;
+    top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    font-family: var(--font-readout);
-    font-size: 24px;
-    color: var(--ink);
-    padding: 6px 16px;
-    background: color-mix(in srgb, var(--canvas) 85%, transparent);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: color-mix(in srgb, var(--canvas) 90%, transparent);
     border-radius: var(--radius-panel);
   }
-
-  #money-display {
-    position: fixed;
-    top: 24px;
-    right: 32px;
-    font-family: var(--font-readout);
-    font-size: 16px;
-    color: var(--accent);
-    padding: 6px 12px;
-    background: color-mix(in srgb, var(--canvas) 85%, transparent);
-    border-radius: var(--radius-panel);
+  .team-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
   }
-
-  #score {
-    position: fixed;
-    left: 32px;
-    bottom: 24px;
-    font-family: var(--font-readout);
-    font-size: 14px;
+  .team-name {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--muted);
-    padding: 4px 12px;
-    background: color-mix(in srgb, var(--canvas) 85%, transparent);
-    border-radius: var(--radius-panel);
+    font-weight: 500;
   }
-  #score b { color: var(--ink); font-weight: 500; }
+  .score-value {
+    font-size: 36px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  #round-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px;
+    border-left: 1px solid var(--hairline);
+    border-right: 1px solid var(--hairline);
+  }
+  #round-text {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  #timer {
+    font-size: 20px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  #minimap-panel {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 180px;
+    height: 180px;
+    background: color-mix(in srgb, var(--canvas) 90%, transparent);
+    border-radius: var(--radius-panel);
+    padding: 8px;
+  }
+  #minimap {
+    width: 164px;
+    height: 164px;
+    image-rendering: crisp-edges;
+  }
+
+  #weapon-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    border-radius: var(--radius-panel);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #weapon-tag {
+    width: 4px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  #weapon-name {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+
+  #killfeed {
+    position: fixed;
+    top: 54px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    max-width: 280px;
+  }
+  #killfeed .kill-entry {
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    padding: 5px 10px;
+    border-radius: var(--radius-panel);
+    white-space: nowrap;
+    animation: killfade 5s ease-out forwards;
+  }
+  @keyframes killfade {
+    0% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  #health-panel, #armour-panel, #cash-panel {
+    position: fixed;
+    left: 20px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    border-radius: var(--radius-panel);
+    min-width: 100px;
+  }
+  #health-panel { bottom: 110px; }
+  #armour-panel { bottom: 74px; }
+  #cash-panel { bottom: 38px; }
+  #health-panel .hud-label, #armour-panel .hud-label, #cash-panel .hud-label {
+    display: block;
+    margin-bottom: 2px;
+  }
+  #health, #armour, #money {
+    font-size: 22px;
+    font-weight: 500;
+    display: block;
+  }
+
+  #ammo-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 38px;
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    border-radius: var(--radius-panel);
+    padding: 8px 14px;
+  }
+  #weapon-name-ammo {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  #ammo-display {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  #ammo-mag {
+    font-size: 48px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  #ammo-panel.empty #ammo-mag { color: var(--accent); }
+  #ammo-reserve {
+    font-size: 16px;
+    color: var(--muted);
+  }
+
+  #grenade-rack {
+    position: fixed;
+    right: 20px;
+    bottom: 110px;
+    background: color-mix(in srgb, var(--canvas) 88%, transparent);
+    border-radius: var(--radius-panel);
+    padding: 6px 10px;
+    display: flex;
+    gap: 6px;
+  }
+  #grenade-rack[hidden] { display: none; }
+  .rack-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .rack-icon {
+    width: 22px;
+    height: 22px;
+    background: var(--hairline);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .rack-count {
+    font-size: 10px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #radio-callout {
+    position: fixed;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: color-mix(in srgb, var(--canvas) 90%, transparent);
+    border-radius: var(--radius-panel);
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+  }
+  #radio-callout.show {
+    opacity: 1;
+  }
 
   #buy-menu {
     position: fixed;
@@ -192,7 +366,7 @@
 
   #bomb-indicator {
     position: fixed;
-    top: 60px;
+    top: 110px;
     left: 50%;
     transform: translateX(-50%);
     padding: 8px 16px;
@@ -361,15 +535,68 @@
 <div id="hud" aria-hidden="true">
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
-  <div id="ammo"><span id="ammo-mag">12</span><span id="ammo-reserve">/ 24</span></div>
-  <div id="grenade-count" hidden>HE <b id="grenades">0</b></div>
-  <div id="health-bar">HP <b id="health">100</b></div>
-  <div id="armour-bar">AP <b id="armour">0</b></div>
-  <div id="timer-display"><b id="timer">0:00</b></div>
-  <div id="money-display"><b id="money">$800</b></div>
-  <div id="score">Rounds <b id="score-value">0 - 0</b></div>
+
+  <div id="scoreboard">
+    <div class="team-score">
+      <div class="team-name">Vanguard</div>
+      <div class="score-value" id="score-vanguard">0</div>
+    </div>
+    <div id="round-info">
+      <div id="round-text">ROUND 1 OF 16</div>
+      <div id="timer">1:55</div>
+    </div>
+    <div class="team-score">
+      <div class="team-name">Sentinel</div>
+      <div class="score-value" id="score-sentinel">0</div>
+    </div>
+  </div>
+
+  <div id="minimap-panel">
+    <canvas id="minimap" width="164" height="164"></canvas>
+  </div>
+
+  <div id="weapon-panel">
+    <div id="weapon-tag"></div>
+    <div id="weapon-name">P9</div>
+  </div>
 
   <div id="killfeed"></div>
+
+  <div id="health-panel" class="hud-panel">
+    <div class="hud-label">Health</div>
+    <div id="health" class="hud-value">100</div>
+  </div>
+
+  <div id="armour-panel" class="hud-panel">
+    <div class="hud-label">Armour</div>
+    <div id="armour" class="hud-value">0</div>
+  </div>
+
+  <div id="cash-panel" class="hud-panel">
+    <div class="hud-label">Cash</div>
+    <div id="money" class="hud-value">$800</div>
+  </div>
+
+  <div id="ammo-panel">
+    <div id="weapon-name-ammo">P9</div>
+    <div id="ammo-display">
+      <span id="ammo-mag">12</span>
+      <span id="ammo-reserve">/ 24</span>
+    </div>
+  </div>
+
+  <div id="grenade-rack" hidden>
+    <div class="rack-item">
+      <div class="rack-icon">HE</div>
+      <div class="rack-count" id="grenades">0</div>
+    </div>
+    <div class="rack-item" id="kit-item" hidden>
+      <div class="rack-icon">KIT</div>
+      <div class="rack-count">1</div>
+    </div>
+  </div>
+
+  <div id="radio-callout"></div>
 
   <div id="bomb-indicator" hidden></div>
 

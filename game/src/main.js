@@ -35,7 +35,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.65;
+renderer.toneMappingExposure = 1.85;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -75,7 +75,7 @@ const state = createState(seed);
 const map = createMap(scene);
 const botMeshes = createBotMeshes(scene);
 const weapon = createWeapon(camera, state);
-const hud = createHud();
+const hud = createHud(map);
 const player = createPlayer(map.colliders, state);
 const bots = createBots(state, map.waypoints);
 const rounds = createRounds(state);
@@ -126,10 +126,12 @@ let bombBeepTimer = 0;
 
 hud.setAmmo(state.weapon.mag, state.weapon.reserve);
 hud.setHealth(state.player.health);
-hud.setArmour(state.player.armour);
+hud.setArmour(state.player.armour, state.player.hasHelmet);
 hud.setMoney(state.player.money);
-hud.setGrenades(state.player.grenades);
+hud.setGrenades(state.player.grenades, state.player.hasDefuseKit);
 hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
+hud.setRound(state.round.number + 1);
+hud.setWeapon(state.weapon.type, state.player.team);
 hud.setTimer(0);
 hud.onPlay(() => {
   if (shot) return;
@@ -198,6 +200,8 @@ function shoot(spread) {
 
     if (hit) {
       audio.playImpact();
+      weapon.spawnTracer(camera.position, shotDir, hit.distance);
+      weapon.spawnImpact(hit.point, hit.face.normal);
       for (const bot of state.bots) {
         if (!bot.alive) continue;
         const botPos = bot.position;
@@ -221,7 +225,7 @@ function shoot(spread) {
           const killed = bots.takeDamage(bot.id, damage);
           hud.hitMarker(part === 'head', markerHoldMs);
           if (killed) {
-            hud.addKill('Player', `Bot${bot.id}`, part === 'head');
+            hud.addKill('Player', `Bot${bot.id}`, state.weapon.type, part === 'head');
             economy.killReward();
             hud.setMoney(state.player.money);
           }
@@ -304,7 +308,7 @@ function stepGrenades(dt) {
           const damage = Math.max(0, 95 * (1 - dist / radius));
           const killed = bots.takeDamage(bot.id, damage);
           if (killed && nade.team === state.player.team) {
-            hud.addKill('Player', `Bot${bot.id}`, false);
+            hud.addKill('Player', `Bot${bot.id}`, 'HE', false);
             economy.killReward();
             hud.setMoney(state.player.money);
           }
@@ -376,7 +380,9 @@ function step(dt) {
       p.plantTime += dt;
       hud.showPlantProgress(Math.min(1, p.plantTime / 3));
       if (p.plantTime >= 3) {
-        rounds.plantBomb(isInSiteA ? 'a_site' : 'b_site');
+        const site = isInSiteA ? 'a_site' : 'b_site';
+        rounds.plantBomb(site);
+        hud.showRadio(`Bomb planted at ${site === 'a_site' ? 'A' : 'B'}`);
         p.hasBomb = false;
         p.planting = false;
         p.plantTime = 0;
@@ -401,6 +407,9 @@ function step(dt) {
       const distToBomb = Math.hypot(p.position.x - siteX, p.position.z - siteZ);
 
       if (input.state.keys.has('KeyE') && p.alive && distToBomb < 3) {
+        if (!p.defusing) {
+          hud.showRadio(`Defusing at ${bombSite === 'a_site' ? 'A' : 'B'}`);
+        }
         p.defusing = true;
         p.defuseTime += dt;
         const defuseTimeNeeded = p.hasDefuseKit ? 5 : 10;
@@ -470,7 +479,7 @@ function step(dt) {
           if (state.player.health <= 0) {
             state.player.alive = false;
             state.player.health = 0;
-            hud.addKill(`Bot${shot.shooterId}`, 'Player', part === 'head');
+            hud.addKill(`Bot${shot.shooterId}`, 'Player', 'AR-4', part === 'head');
             hud.showDeathOverlay(`Bot${shot.shooterId}`);
           }
         }
@@ -487,13 +496,16 @@ function step(dt) {
 
   // Handle round transitions
   if (prevPhase !== 'buy' && state.round.phase === 'buy') {
-    hud.setGrenades(state.player.grenades);
+    hud.setGrenades(state.player.grenades, state.player.hasDefuseKit);
+    hud.setRound(state.round.number + 1);
   }
 
   if (prevPhase === 'buy' && state.round.phase === 'live') {
     if (state.round.sideSwapped) {
       const newTeamName = state.player.team === 'vanguard' ? 'Vanguard' : 'Sentinel';
       hud.showRoundBanner(`Side swap! You are now ${newTeamName}`);
+      hud.setWeapon(state.weapon.type, state.player.team);
+      weapon.setTeamColor(state.player.team);
       state.round.sideSwapped = false;
     }
     bots.spawn();
@@ -520,8 +532,7 @@ function step(dt) {
   }
 
   const timeLeft = rounds.getTimeLeft();
-  hud.setTimer(timeLeft);
-  hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
+  hud.refreshHUD(state, timeLeft);
 
   if (state.round.bombPlanted) {
     bombBeepTimer += dt;
@@ -643,15 +654,19 @@ function runShot(name) {
     hud.showBombIndicator('BOMB: 20s');
   }
 
-  hud.setAmmo(state.weapon.mag, state.weapon.reserve);
-  hud.setHealth(state.player.health);
-  hud.setArmour(state.player.armour);
-  hud.setMoney(state.player.money);
-  hud.setGrenades(state.player.grenades);
-  hud.setScore(state.round.vanguardWins, state.round.sentinelWins);
-  hud.setTimer(state.round.phase === 'buy' ? 10 : 95);
+  weapon.setTeamColor(state.player.team);
   syncCamera();
   updateBotMeshes(state.bots, botMeshes);
+  hud.refreshHUD(state, state.round.phase === 'buy' ? 10 : 95);
+
+  // Emit contact callout if any friendly bot has detected an enemy
+  const friendlyBotWithContact = state.bots.find(b => b.team === state.player.team && b.target !== null);
+  if (friendlyBotWithContact && friendlyBotWithContact.path.length > 0) {
+    const wp = map.waypoints.find(w => w.id === friendlyBotWithContact.path[friendlyBotWithContact.waypointIndex]);
+    const lane = wp ? wp.lane.replace('_', ' ').toUpperCase() : 'MID';
+    hud.showRadio(`Contact at ${lane}`);
+  }
+
   paintTwiceThenReady();
 }
 

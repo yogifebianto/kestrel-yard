@@ -7,15 +7,15 @@ const tileCanvas = document.createElement('canvas');
 tileCanvas.width = 256;
 tileCanvas.height = 256;
 const tileCtx = tileCanvas.getContext('2d');
-tileCtx.fillStyle = '#6a6d72';
+tileCtx.fillStyle = '#787470';
 tileCtx.fillRect(0, 0, 256, 256);
 for (let y = 0; y < 2; y += 1) {
   for (let x = 0; x < 2; x += 1) {
     const noise = Math.random() * 0.08 - 0.04;
-    const brightness = 106 + Math.floor(noise * 255);
-    tileCtx.fillStyle = `rgb(${brightness}, ${brightness + 3}, ${brightness + 8})`;
+    const brightness = 115 + Math.floor(noise * 255);
+    tileCtx.fillStyle = `rgb(${brightness + 3}, ${brightness + 1}, ${brightness - 2})`;
     tileCtx.fillRect(x * 128 + 3, y * 128 + 3, 122, 122);
-    tileCtx.strokeStyle = '#4a4d52';
+    tileCtx.strokeStyle = '#5a5650';
     tileCtx.lineWidth = 2;
     tileCtx.strokeRect(x * 128 + 2.5, y * 128 + 2.5, 123, 123);
   }
@@ -30,13 +30,13 @@ const concreteCanvas = document.createElement('canvas');
 concreteCanvas.width = 256;
 concreteCanvas.height = 256;
 const concreteCtx = concreteCanvas.getContext('2d');
-concreteCtx.fillStyle = '#5a5c60';
+concreteCtx.fillStyle = '#625e58';
 concreteCtx.fillRect(0, 0, 256, 256);
 for (let i = 0; i < 800; i += 1) {
   const x = Math.random() * 256;
   const y = Math.random() * 256;
   const noise = Math.random() * 20 - 10;
-  concreteCtx.fillStyle = `rgba(${90 + noise}, ${92 + noise}, ${96 + noise}, 0.3)`;
+  concreteCtx.fillStyle = `rgba(${98 + noise}, ${94 + noise}, ${88 + noise}, 0.3)`;
   concreteCtx.fillRect(x, y, 2, 2);
 }
 const concreteTexture = new THREE.CanvasTexture(concreteCanvas);
@@ -409,14 +409,14 @@ export function createMap(scene) {
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
 
-  // Cool fill light for shadowed sides
-  const fillLight = new THREE.DirectionalLight(new THREE.Color('#8ab0d8'), 0.85);
+  // Warm fill light for shadowed sides
+  const fillLight = new THREE.DirectionalLight(new THREE.Color('#c8b8a8'), 1.1);
   fillLight.position.set(30, 35, -25);
   fillLight.castShadow = false;
   scene.add(fillLight);
 
   // Hemisphere for ambient base
-  const hemi = new THREE.HemisphereLight(new THREE.Color('#b8c8d8'), new THREE.Color('#786858'), 0.65);
+  const hemi = new THREE.HemisphereLight(new THREE.Color('#d8c8b8'), new THREE.Color('#8a7868'), 0.75);
   scene.add(hemi);
 
   // Point lights: brighter at sites, dimmer in tunnels

@@ -196,7 +196,11 @@ export function createBots(state, waypoints) {
           bot.planting = true;
           bot.plantTime += dt;
           if (bot.plantTime >= 3) {
-            rounds.plantBomb(isInSiteA ? 'a_site' : 'b_site');
+            const site = isInSiteA ? 'a_site' : 'b_site';
+            rounds.plantBomb(site);
+            if (hud) {
+              hud.showRadio(`Bomb planted at ${site === 'a_site' ? 'A' : 'B'}`);
+            }
             bot.hasBomb = false;
             bot.planting = false;
             bot.plantTime = 0;
@@ -217,6 +221,9 @@ export function createBots(state, waypoints) {
         const siteZ = bombSite === 'a_site' ? -20 : 20;
         const distToBomb = Math.hypot(bot.position.x - siteX, bot.position.z - siteZ);
         if (distToBomb < 3) {
+          if (!bot.defusing && hud) {
+            hud.showRadio(`Defusing at ${bombSite === 'a_site' ? 'A' : 'B'}`);
+          }
           bot.defusing = true;
           bot.defuseTime += dt;
           const defuseTimeNeeded = bot.hasDefuseKit ? 5 : 10;
@@ -236,10 +243,16 @@ export function createBots(state, waypoints) {
 
       // Check for targets
       playerEye.set(state.player.position.x, state.player.position.y + state.player.eye, state.player.position.z);
+      const hadTarget = bot.target !== null;
       if (bot.team !== state.player.team && state.player.alive && canSee(bot, playerEye, colliders)) {
         if (!bot.target) {
           bot.reactionTime = REACTION_TIME;
           bot.trackTime = 0;
+          const wp = waypoints.find(w => bot.path.length > 0 && w.id === bot.path[bot.waypointIndex]);
+          const lane = wp ? wp.lane.replace('_', ' ').toUpperCase() : 'UNKNOWN';
+          if (hud && bot.team === state.player.team) {
+            hud.showRadio(`Contact at ${lane}`);
+          }
         }
         bot.target = 'player';
       } else {
@@ -257,6 +270,11 @@ export function createBots(state, waypoints) {
           if (!bot.target) {
             bot.reactionTime = REACTION_TIME;
             bot.trackTime = 0;
+            const wp = waypoints.find(w => bot.path.length > 0 && w.id === bot.path[bot.waypointIndex]);
+            const lane = wp ? wp.lane.replace('_', ' ').toUpperCase() : 'UNKNOWN';
+            if (hud && bot.team === state.player.team) {
+              hud.showRadio(`Contact at ${lane}`);
+            }
           }
           bot.target = foundEnemy.id;
         } else {
@@ -283,6 +301,10 @@ export function createBots(state, waypoints) {
       } else {
         // Navigate waypoints
         if (state.round.bombPlanted && bot.team === 'sentinel' && bot.role !== 'defuse') {
+          const newSite = state.round.bombSite === 'a_site' ? 'A' : 'B';
+          if (hud && bot.team === state.player.team) {
+            hud.showRadio(`Rotating to ${newSite}`);
+          }
           bot.role = 'defuse';
           bot.path = state.round.bombSite === 'a_site' ? [10, 6, 7] : [8, 11, 12, 13];
           bot.waypointIndex = 0;
