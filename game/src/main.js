@@ -1,4 +1,14 @@
 // Boot and loop: fixed 60 Hz simulation, screenshot hooks, thin wiring between modules.
+// Movement and crouch: player.step, player.js
+// Recoil and spread: weapon.pullTrigger, weapon.spread
+// Head damage: shoot(), part detection and bodyMultiplier
+// Bomb plant and defuse: planting and defusing blocks in step()
+// Economy and buy menu: economy.js, opened from the buy phase in step() and frame()
+// Grenade: throwGrenade(), stepGrenades()
+// Bot routes: assignRoles and waypoint navigation in bots.js
+// Bot holding: the hold-role anchor and its yaw sweep in bots.step
+// Bot hearing: state.noise written in shoot() and step(), read in bots.step
+// Fixed step: frame() runs step() at a fixed 60 Hz, rendering stays separate
 import * as THREE from 'three';
 import { createState } from './state.js';
 import { createMap } from './map.js';
@@ -182,6 +192,11 @@ function aimAt(point) {
 function shoot(spread) {
   if (!weapon.takeRound()) return false;
   audio.playGunshot();
+  state.noise.x = state.player.position.x;
+  state.noise.y = state.player.position.y;
+  state.noise.z = state.player.position.z;
+  state.noise.radius = 35;
+  state.noise.time = state.time;
   camera.getWorldDirection(direction);
 
   const stats = weapon.stats();
@@ -366,7 +381,14 @@ function step(dt) {
       if (footstepPhase > stepInterval) {
         footstepPhase = 0;
         const volume = state.player.crouching ? 0 : (player.groundSpeed() > 4.0 ? 0.08 : 0.04);
-        if (volume > 0) audio.playFootstep(volume);
+        if (volume > 0) {
+          audio.playFootstep(volume);
+          state.noise.x = state.player.position.x;
+          state.noise.y = state.player.position.y;
+          state.noise.z = state.player.position.z;
+          state.noise.radius = player.groundSpeed() > 4.0 ? 12 : 6;
+          state.noise.time = state.time;
+        }
       }
     }
 

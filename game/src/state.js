@@ -69,5 +69,14 @@ export function createState(seed) {
 
     // Grenades
     grenades: [],
+
+    // Noise (latest sound event)
+    noise: {
+      x: 0,
+      y: 0,
+      z: 0,
+      radius: 0,
+      time: 0,
+    },
   };
 }

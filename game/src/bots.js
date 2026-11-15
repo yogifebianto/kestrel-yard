@@ -16,7 +16,19 @@ const WAYPOINT_REACH = 1.8;
 const shotOrigin = new THREE.Vector3();
 const shotDirection = new THREE.Vector3();
 
+const shotPool = [];
+for (let i = 0; i < 16; i += 1) {
+  shotPool.push({
+    origin: new THREE.Vector3(),
+    direction: new THREE.Vector3(),
+    shooterId: 0,
+    team: '',
+  });
+}
+let shotPoolIndex = 0;
+
 export function createBots(state, waypoints) {
+  let rotationAnnounced = false;
   const bots = [];
   const raycaster = new THREE.Raycaster();
   const direction = new THREE.Vector3();
@@ -31,6 +43,7 @@ export function createBots(state, waypoints) {
   function spawn() {
     bots.length = 0;
     state.bots = bots;
+    rotationAnnounced = false;
 
     const playerTeam = state.player.team;
     const enemyTeam = playerTeam === 'vanguard' ? 'sentinel' : 'vanguard';
@@ -75,6 +88,12 @@ export function createBots(state, waypoints) {
       plantTime: 0,
       defusing: false,
       defuseTime: 0,
+      lastSeenPos: null,
+      lastSeenTime: 0,
+      investigatingNoise: false,
+      investigateTarget: new THREE.Vector3(),
+      anchorTimer: 0,
+      anchorSweepDir: 1,
     };
   }
 
@@ -114,12 +133,15 @@ export function createBots(state, waypoints) {
     targetDir.subVectors(targetPosIn, botEye);
     const dist = targetDir.length();
     if (dist > 60) return false;
+    if (dist < 1e-4) return true;
 
     forward.set(Math.sin(bot.yaw), 0, Math.cos(bot.yaw));
-    const dot = forward.dot(targetDir.clone().normalize());
+    const invDist = 1 / dist;
+    const dot = forward.x * targetDir.x * invDist + forward.z * targetDir.z * invDist;
     if (dot < Math.cos(FOV_ANGLE / 2)) return false;
 
-    raycaster.set(botEye, targetDir.normalize());
+    targetDir.multiplyScalar(invDist);
+    raycaster.set(botEye, targetDir);
     raycaster.far = dist;
     const hits = raycaster.intersectObjects(colliders, false);
     return hits.length === 0 || hits[0].distance > dist - 0.5;
@@ -290,30 +312,85 @@ export function createBots(state, waypoints) {
           const targetBot = bots.find(b => b.id === bot.target);
           targetPos.set(targetBot.position.x, targetBot.position.y + BOT_EYE, targetBot.position.z);
         }
+        if (!bot.lastSeenPos) bot.lastSeenPos = new THREE.Vector3();
+        bot.lastSeenPos.copy(targetPos);
+        bot.lastSeenTime = 3.0;
+        bot.investigatingNoise = false;
         aimAt(bot, targetPos, dt);
         bot.velocity.set(0, 0, 0);
 
         if (bot.reactionTime > 0) {
           bot.reactionTime -= dt;
         } else if (shoot(bot, random, weapon, hud)) {
-          shots.push({ origin: new THREE.Vector3().copy(shotOrigin), direction: new THREE.Vector3().copy(shotDirection), shooterId: bot.id, team: bot.team });
+          const shot = shotPool[shotPoolIndex];
+          shotPoolIndex = (shotPoolIndex + 1) % shotPool.length;
+          shot.origin.copy(shotOrigin);
+          shot.direction.copy(shotDirection);
+          shot.shooterId = bot.id;
+          shot.team = bot.team;
+          shots.push(shot);
         }
       } else {
-        // Navigate waypoints
-        if (state.round.bombPlanted && bot.team === 'sentinel' && bot.role !== 'defuse') {
-          const newSite = state.round.bombSite === 'a_site' ? 'A' : 'B';
-          if (hud && bot.team === state.player.team) {
-            hud.showRadio(`Rotating to ${newSite}`);
-          }
-          bot.role = 'defuse';
-          bot.path = state.round.bombSite === 'a_site' ? [10, 6, 7] : [8, 11, 12, 13];
-          bot.waypointIndex = 0;
+        // Decay last-seen timer
+        if (bot.lastSeenTime > 0) {
+          bot.lastSeenTime -= dt;
         }
 
-        if (bot.path.length > 0 && bot.waypointIndex < bot.path.length) {
-          const wp = waypoints.find(w => w.id === bot.path[bot.waypointIndex]);
-          if (wp && moveToward(bot, wp, dt)) {
-            bot.waypointIndex += 1;
+        // Pursue last-seen position if memory is fresh
+        if (bot.lastSeenTime > 0 && bot.lastSeenPos) {
+          moveToward(bot, bot.lastSeenPos, dt);
+          bot.yaw += (random() * 0.4 - 0.2) * dt;
+        } else if (!bot.investigatingNoise) {
+          // Check for noise
+          const noiseDist = Math.hypot(bot.position.x - state.noise.x, bot.position.z - state.noise.z);
+          const noiseAge = state.time - state.noise.time;
+          if (noiseAge < 0.5 && noiseDist < state.noise.radius) {
+            bot.investigatingNoise = true;
+            bot.investigateTarget.set(state.noise.x, state.noise.y, state.noise.z);
+            const dx = state.noise.x - bot.position.x;
+            const dz = state.noise.z - bot.position.z;
+            bot.yaw = Math.atan2(dx, dz);
+          }
+        }
+
+        // Investigate noise or navigate waypoints
+        if (bot.investigatingNoise) {
+          const reached = moveToward(bot, bot.investigateTarget, dt);
+          if (reached) {
+            bot.yaw += (random() * 0.6 - 0.3) * dt;
+            bot.anchorTimer += dt;
+            if (bot.anchorTimer > 2.0) {
+              bot.investigatingNoise = false;
+              bot.anchorTimer = 0;
+            }
+          }
+        } else {
+          // Navigate waypoints
+          if (state.round.bombPlanted && bot.team === 'sentinel' && bot.role !== 'defuse') {
+            if (hud && bot.team === state.player.team && !rotationAnnounced) {
+              const newSite = state.round.bombSite === 'a_site' ? 'A' : 'B';
+              hud.showRadio(`Rotating to ${newSite}`);
+              rotationAnnounced = true;
+            }
+            bot.role = 'defuse';
+            bot.path = state.round.bombSite === 'a_site' ? [10, 6, 7] : [8, 11, 12, 13];
+            bot.waypointIndex = 0;
+          }
+
+          // Hold role anchoring
+          if (bot.role === 'hold' && bot.path.length > 0 && bot.waypointIndex >= bot.path.length) {
+            bot.velocity.set(0, 0, 0);
+            bot.yaw += bot.anchorSweepDir * 0.6 * dt;
+            bot.anchorTimer += dt;
+            if (bot.anchorTimer > 3.0) {
+              bot.anchorSweepDir *= -1;
+              bot.anchorTimer = 0;
+            }
+          } else if (bot.path.length > 0 && bot.waypointIndex < bot.path.length) {
+            const wp = waypoints.find(w => w.id === bot.path[bot.waypointIndex]);
+            if (wp && moveToward(bot, wp, dt)) {
+              bot.waypointIndex += 1;
+            }
           }
         }
       }
