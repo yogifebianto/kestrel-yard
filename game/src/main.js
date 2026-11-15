@@ -83,7 +83,11 @@ function createGrenadeMesh() {
 for (let i = 0; i < 8; i += 1) grenadeMeshes.push(createGrenadeMesh());
 
 function updateShootables() {
-  shootables = map.shootables.concat(botMeshes.flatMap(m => [m.torso, m.head, m.legL, m.legR, m.armL, m.armR]));
+  shootables.length = map.shootables.length;
+  for (let i = 0; i < map.shootables.length; i += 1) shootables[i] = map.shootables[i];
+  for (const mesh of botMeshes) {
+    shootables.push(mesh.torso, mesh.head, mesh.legL, mesh.legR, mesh.armL, mesh.armR);
+  }
 }
 
 const markerHoldMs = shot ? 4000 : 90;

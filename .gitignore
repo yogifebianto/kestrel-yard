@@ -1,2 +1,3 @@
+# Ignore build output and development artifacts
 out/
 server.log

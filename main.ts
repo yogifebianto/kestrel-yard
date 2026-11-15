@@ -1,32 +1,59 @@
-// A working threejs-fps-01 entry (Node 22, standard library only): the game is this directory's
-// game/ folder, plain static files the browser loads as ES modules with three.js from an import
-// map, and the program hands it in. It copies game/ and screenshots/ from beside this file to
-// /output and writes /output/dossier.json, the summary the judge reads, with the vendored make.fun
-// library. A starting point, not a winner: a grey room, one rifle and four targets that drop when
-// shot. Build your game, put your PNG or JPEG screenshots in screenshots/ (the first by name is
-// the cover) and run it.
+// KESTREL YARD entry point for make.fun three.js FPS bounty
 //
-// Serve it locally with `node serve.ts`, then open http://localhost:8080.
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// This program packages the game for submission by copying game/ and screenshots/ to the output
+// directory and generating dossier.json, the manifest the scorer reads to validate the entry.
+//
+// Run locally: MAKEFUN_OUTPUT_DIR=out node main.ts
+// In the grader's container, it writes to /output by default.
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-threejs.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+// Resolve the directory containing this script
+const scriptDirectory = fileURLToPath(new URL('.', import.meta.url));
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+// Output directory: use MAKEFUN_OUTPUT_DIR env var, or fall back to /output for the grader
+const outputDirectory = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-// The scorer's own caps (reference/gate.json): only text_max_bytes shapes the bytes; the others refuse an entry the
-// scorer would refuse (more than 4 screenshots or one over 256 KiB; more than 993 files in game/ or 48 MiB of game
-// files, in all: game/ counts beside /output's own 1000-entry cap, its screenshots/ and dossier.json).
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, { text_max_bytes: 163840, screenshots: { max: 4, max_bytes: 262144 }, game_max_files: 993, game_max_bytes: 50331648 }),
-);
+// Create the output directory structure
+mkdirSync(outputDirectory, { recursive: true });
+
+// Copy the game files (the browser-loadable three.js application)
+const gameSource = join(scriptDirectory, 'game');
+const gameDestination = join(outputDirectory, 'game');
+cpSync(gameSource, gameDestination, { recursive: true });
+
+// Copy screenshots if they exist (the first screenshot by name becomes the cover image)
+const screenshotsSource = join(scriptDirectory, 'screenshots');
+const screenshotsDestination = join(outputDirectory, 'screenshots');
+mkdirSync(screenshotsDestination, { recursive: true });
+
+if (existsSync(screenshotsSource)) {
+  cpSync(screenshotsSource, screenshotsDestination, { recursive: true });
+}
+
+// Generate dossier.json with the scorer's caps from reference/gate.json:
+//
+// - text_max_bytes: 163840 (160 KiB) - truncates the dossier's text fields to fit this limit
+// - screenshots.max: 4 - rejects entries with more than 4 screenshots
+// - screenshots.max_bytes: 262144 (256 KiB) - rejects any screenshot over this size
+// - game_max_files: 993 - rejects entries with more than 993 files in game/
+//   (the grader allows 1000 total entries in /output including game/, screenshots/, and dossier.json)
+// - game_max_bytes: 50331648 (48 MiB) - rejects entries where game/ exceeds this total size
+//
+// These caps ensure the entry passes the scorer's validation before it reaches the judge.
+
+const dossierContent = buildDossier(outputDirectory, {
+  text_max_bytes: 163840,
+  screenshots: {
+    max: 4,
+    max_bytes: 262144,
+  },
+  game_max_files: 993,
+  game_max_bytes: 50331648,
+});
+
+const dossierPath = join(outputDirectory, 'dossier.json');
+writeFileSync(dossierPath, dossierContent);
